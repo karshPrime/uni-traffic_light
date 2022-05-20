@@ -76,12 +76,11 @@ begin
 
 	-- 
 	CombinationalProcess:
-	Process(State)
+	Process(State, Counter)
 	begin
 		-- default values for signals; prevents latches
 		LightsEW  <= RED;
 		LightsNS  <= RED;
-		NextState <= State;
 
 		-- Next state and lights condition defined based upon current state
 		case State is
@@ -116,4 +115,8 @@ begin
 
 	end Process CombinationalProcess;
 
+
+	-- button states save in memory
+--	ButtonState:
+--	Process(
 end;
