@@ -46,6 +46,10 @@ constant WALK  : std_logic_vector(1 downto 0) := "11";
 type StateType is (GreenNS, GreenEW, AmberEW, AmberNS);
 signal State, NextState : StateType;
 
+-- defining counter
+constant COUNTER_MAX : INTEGER := 511;
+signal Counter : NATURAL RANGE 0 to COUNTER_MAX := 0;
+
 begin
 	debugLed <= Reset; 		-- Show reset status on FPGA LED
 	LEDs     <= "000";		-- Threee LEDs for debug 
@@ -59,6 +63,13 @@ begin
 			State <= GreenEW;
 		elsif rising_edge(clock) then
 			State <= NextState;
+
+			if (Counter = COUNTER_MAX) then
+				Counter <= 0;
+			else
+				Counter <= Counter + 1;
+			end if;
+
 		end if;
 	end Process SyncProcess;
 
@@ -75,21 +86,32 @@ begin
 		-- Next state and lights condition defined based upon current state
 		case State is
 			when GreenNS =>
-				LightsNS  <= GREEN;
-				NextState <= AmberNS;
-				
+				if (Counter = COUNTER_MAX) then
+					NextState <= AmberNS;
+				else
+					LightsNS  <= GREEN;
+				end if;
+
 			when AmberNS =>
-				LightsNS  <= AMBER;
-				NextState <= GreenEW;
-				
+				if (Counter = COUNTER_MAX) then
+					NextState <= GreenEW;
+				else
+					LightsNS  <= AMBER;
+				end if;
+
 			when GreenEW =>
-				LightsNS  <= RED;
-				LightsEW  <= GREEN;
-				NextState <= AmberEW;
-				
+				if (Counter = COUNTER_MAX) then
+					NextState <= AmberEW;
+				else
+					LightsEW  <= GREEN;
+				end if;
+
 			when AmberEW =>
-				LightsEW  <= AMBER;
-				NextState <= GreenNS;
+				if (Counter = COUNTER_MAX) then
+					NextState <= GreenNS;
+				else
+					LightsEW  <= AMBER;
+				end if;
 		end case;
 
 	end Process CombinationalProcess;
