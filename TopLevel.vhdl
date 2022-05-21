@@ -43,8 +43,8 @@ CONSTANT GREEN : STD_LOGIC_VECTOR(1 downto 0) := "10";
 CONSTANT WALK  : STD_LOGIC_VECTOR(1 downto 0) := "11";
 
 -- defining states
-type StateType is (GreenNS, GreenEW, AmberEW, AmberNS, WalkEW, WalkNS);
-Signal State, NextState : StateType;
+type StateType is (GreenNS, GreenEW, AmberEW, AmberNS);
+Signal State, NextState, TMP : StateType;
 
 -- defining counter
 CONSTANT COUNTER_MAX : INTEGER := 1535;
@@ -106,17 +106,33 @@ begin
 			when GreenEW =>
 				LightsEW   <= GREEN;
 				WaitEnable <= '1';
-				if (MinWait = '1' and (mCarNS = '1' or mPedEW = '1')) then
+				if (MinWait = '1' and mCarNS = '1') then
 					WaitEnable <= '0';
 					NextState  <= AmberNS;
+				elsif (mPedEW = '1') then
+					if (PedWait  = '1') then
+						WaitEnable <= '0';
+						LightsEW   <= RED;
+						ClearMem   <= '1';
+					else
+						LightsEW   <= WALK;
+					end if;
 				end if;
 
 			when GreenNS =>
 				LightsNS   <= GREEN;
 				WaitEnable <= '1';
-				if (MinWait = '1' and (mCarEW = '1' or mPedNS = '1')) then
+				if (MinWait = '1' and mCarEW = '1') then
 					WaitEnable <= '0';
 					NextState  <= AmberEW;
+				elsif (mPedNS = '1') then
+					if (PedWait  = '1') then
+						WaitEnable <= '0';
+						LightsNS   <= RED;
+						ClearMem   <= '1';
+					else
+						LightsNS   <= WALK;
+					end if;
 				end if;
 
 			when AmberNS =>
@@ -124,11 +140,7 @@ begin
 				WaitEnable <= '1';
 				if (AmberWait = '1') then
 					WaitEnable <= '0';
-					if (mPedEW = '1') then
-						NextState  <= WalkEW;
-					else
-						NextState  <= GreenNS;
-					end if;
+					NextState  <= GreenNS;
 				end if;
 				ClearMem <= '1';
 
@@ -137,30 +149,9 @@ begin
 				WaitEnable <= '1';
 				if (AmberWait = '1') then
 					WaitEnable <= '0';
-					if (mPedNS = '1') then
-						NextState <= WalkNS;
-					else
-						NextState <= GreenEW;
-					end if;
+					NextState <= GreenEW;
 				end if;
 				ClearMem <= '1';
-
-			when WalkEW  =>
-				LightsEW   <= WALK;
-				WaitEnable <= '1';
-				if (PedWait = '1') then
-					WaitEnable <= '0';
-					NextState  <= GreenNS;
-				end if;
-
-			when WalkNS  =>
-				LightsNS  <= WALK;
-				WaitEnable <= '1';
-				if (PedWait = '1') then
-					WaitEnable <= '0';
-					NextState  <= GreenEW;
-				end if;
-
 		end case State;
 	
 	end process CombinationalProcess;
