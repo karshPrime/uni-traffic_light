@@ -99,10 +99,6 @@ begin
 	begin
 		LightsNS <= RED;
 		LightsEW <= RED;
-		cmCarEW  <= '0';
-		cmCarNS  <= '0';
-		cmPedEW  <= '0';
-		cmPedNS  <= '0';
 	
 		case State is
 			when GreenEW =>
@@ -164,8 +160,13 @@ begin
 	
 	--[ ]--------------------------------------------------------------------------------------
 	MemorySave:
-	Process(CarEW, CarNS, PedEW, PedNS)
+	Process(CarEW, CarNS, PedEW, PedNS, cmCarEW, cmCarNS, cmPedEW, cmPedNS)
 	begin
+		cmCarEW  <= '0';
+		cmCarNS  <= '0';
+		cmPedEW  <= '0';
+		cmPedNS  <= '0';
+
 		if CarEW   = '1' then
 			mCarEW <= '1';
 		end if;
