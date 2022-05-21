@@ -18,7 +18,7 @@ entity Traffic is
 
 				-- for debug
 				debugLED   : out  STD_LOGIC;
-				LEDs       : out  STD_LOGIC_VECTOR(2 downto 0);
+				LEDs       : out  STD_LOGIC_VECTOR(3 downto 0);
 
 				-- Car and pedestrian buttons
 				CarEW      : in   STD_LOGIC; -- Car on EW road
@@ -46,7 +46,7 @@ type StateType is (GreenNS, GreenEW, AmberEW, AmberNS, WalkEW, WalkNS);
 Signal State, NextState : StateType;
 
 -- defining counter
-CONSTANT COUNTER_MAX : INTEGER := 511;
+CONSTANT COUNTER_MAX : INTEGER := 1535;
 Signal Counter : NATURAL RANGE 0 to COUNTER_MAX := 0;
 
 -- memory signals
@@ -56,8 +56,8 @@ Signal cmCarEW, cmCarNS, cmPedEW, cmPedNS : STD_LOGIC := '0';
 Signal PedWait, AmberWait, MinWait, WaitEnable : STD_LOGIC := '0';
 
 begin
-	debugLed <= Reset; 		-- Show reset status on FPGA LED
-	LEDs     <= "111";		-- Threee LEDs for debug 
+	debugLed <= Reset; 			-- Show reset status on FPGA LED
+	LEDs     <= (mCarEW, mCarNS, mPedEW, mPedNS); -- Debug LEDs
 
 	--[ ]--------------------------------------------------------------------------------------
 	SyncProcess:
@@ -65,33 +65,21 @@ begin
 	begin
 		if (Reset = '1') then
 			State <= GreenEW;
-			
 		elsif rising_edge(Clock) then
 			State <= NextState;
-
 		end if;
 	end process SyncProcess;
 	
-	--[ ]--------------------------------------------------------------------------------------
+	--[ Counter ]------------------------------------------------------------------------------
 	Timer:
 	Process(WaitEnable, Clock, Reset)
 	begin
 		if (Reset = '1') then
-			-- everything 0
+			Counter <= 0;
 		elsif (WaitEnable = '1') then
 			if rising_edge(Clock) then
 				if (Counter = COUNTER_MAX) then
 					Counter <= 0;
-					if (MinWait = '1') then
-						MinWait   <= '0';
-						AmberWait <= '1';
-					elsif (AmberWait = '1') then
-						AmberWait <= '0';
-						PedWait   <= '1';
-					else
-						PedWait   <= '0';
-						MinWait   <= '1';
-					end if;
 				else
 					Counter <= Counter + 1;
 				end if;
@@ -101,6 +89,10 @@ begin
 		end if;
 	end Process Timer;
 	
+	MinWait   <= '1' when (Counter = 511)  else '0';
+	AmberWait <= '1' when (Counter = 1023) else '0';
+	PedWait   <= '1' when (Counter = 1535) else '0';
+
 	--[ ]--------------------------------------------------------------------------------------
 	CombinationalProcess:
 	Process(State, MinWait, PedWait, AmberWait)
@@ -115,7 +107,7 @@ begin
 		case State is
 			when GreenEW =>
 			WaitEnable <= '1';
-			if (MinWait = '1' and (mCarNS = '1' or mPedEW = '1')) then
+			if (MinWait = '1') then
 				NextState  <= AmberEW;
 				WaitEnable <= '0';
 			else
@@ -124,13 +116,8 @@ begin
 
 			when AmberEW =>
 				WaitEnable <= '1';
-				if (AmberWait  = '1' and (mCarNS = '1')) then
+				if (AmberWait  = '1') then
 					NextState  <= GreenNS;
-					cmCarNS    <= '1';
-					WaitEnable <= '0';
-				elsif (AmberWait = '1' and (mPedEW = '1')) then
-					NextState  <= WalkNS;
-					cmPedEW    <= '1';
 					WaitEnable <= '0';
 				else
 					LightsEW   <= AMBER;
@@ -147,7 +134,7 @@ begin
 
 			when GreenNS =>
 				WaitEnable <= '1';
-				if (MinWait = '1' and (mCarEW = '1' or mPedNS = '1')) then
+				if (MinWait = '1') then
 					NextState  <= AmberNS;
 					WaitEnable <= '0';
 				else
@@ -156,13 +143,8 @@ begin
 
 			when AmberNS =>
 				WaitEnable <= '1';
-				if (AmberWait  = '1' and (mCarEW = '1')) then
+				if (AmberWait  = '1') then
 					NextState  <= GreenEW;
-					cmCarEW    <= '1';
-					WaitEnable <= '0';
-				elsif (AmberWait = '1' and (mPedNS = '1')) then
-					NextState  <= WalkEW;
-					cmPedNS    <= '1';
 					WaitEnable <= '0';
 				else
 					LightsNS   <= AMBER;
