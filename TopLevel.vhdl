@@ -1,12 +1,11 @@
-----------------------------------------------------------------------------------
---  Traffic.vhd
+----------------------------------------------------------------------------------------------
+-- Traffic.vhd
 --
 -- Traffic light system to control an intersection
 --
--- Accepts inputs from two car sensors and two pedestrian call buttons
--- Controls two sets of lights consisting of Red, Amber and Green traffic lights and
--- a pedestrian walk light.
-----------------------------------------------------------------------------------
+-- Accepts inputs from two car sensors and two pedestrian call buttons Controls two sets of 
+-- lights consisting of Red, Amber and Green traffic lights and a pedestrian walk light.
+----------------------------------------------------------------------------------------------
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
@@ -18,8 +17,8 @@ entity Traffic is
 				Clock      : in   STD_LOGIC;
 
 				-- for debug
-				debugLED   : out  std_logic;
-				LEDs       : out  std_logic_vector(2 downto 0);
+				debugLED   : out  STD_LOGIC;
+				LEDs       : out  STD_LOGIC_VECTOR(2 downto 0);
 
 				-- Car and pedestrian buttons
 				CarEW      : in   STD_LOGIC; -- Car on EW road
@@ -33,90 +32,189 @@ entity Traffic is
            
            );
 end Traffic;
-----------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------
 
 architecture Behavioral of Traffic is
 -- Encoding for lights
-constant RED   : std_logic_vector(1 downto 0) := "00";
-constant AMBER : std_logic_vector(1 downto 0) := "01";
-constant GREEN : std_logic_vector(1 downto 0) := "10";
-constant WALK  : std_logic_vector(1 downto 0) := "11";
+CONSTANT RED   : STD_LOGIC_VECTOR(1 downto 0) := "00";
+CONSTANT AMBER : STD_LOGIC_VECTOR(1 downto 0) := "01";
+CONSTANT GREEN : STD_LOGIC_VECTOR(1 downto 0) := "10";
+CONSTANT WALK  : STD_LOGIC_VECTOR(1 downto 0) := "11";
 
 -- defining states
-type StateType is (GreenNS, GreenEW, AmberEW, AmberNS);
-signal State, NextState : StateType;
+type StateType is (GreenNS, GreenEW, AmberEW, AmberNS, WalkEW, WalkNS);
+Signal State, NextState : StateType;
 
 -- defining counter
-constant COUNTER_MAX : INTEGER := 511;
-signal Counter : NATURAL RANGE 0 to COUNTER_MAX := 0;
+CONSTANT COUNTER_MAX : INTEGER := 511;
+Signal Counter : NATURAL RANGE 0 to COUNTER_MAX := 0;
+
+-- memory signals
+Signal mCarEW, mCarNS, mPedEW, mPedNS     : STD_LOGIC := '0';
+Signal cmCarEW, cmCarNS, cmPedEW, cmPedNS : STD_LOGIC := '0';
+
+Signal PedWait, AmberWait, MinWait, WaitEnable : STD_LOGIC := '0';
 
 begin
 	debugLed <= Reset; 		-- Show reset status on FPGA LED
-	LEDs     <= "000";		-- Threee LEDs for debug 
+	LEDs     <= "111";		-- Threee LEDs for debug 
 
-
-	-- Chance state on clock edge, and reset state if requested
+	--[ ]--------------------------------------------------------------------------------------
 	SyncProcess:
 	Process(Reset, Clock)
 	begin
 		if (Reset = '1') then
 			State <= GreenEW;
-		elsif rising_edge(clock) then
+			
+		elsif rising_edge(Clock) then
 			State <= NextState;
 
-			if (Counter = COUNTER_MAX) then
-				Counter <= 0;
+		end if;
+	end process SyncProcess;
+	
+	--[ ]--------------------------------------------------------------------------------------
+	Timer:
+	Process(WaitEnable, Clock, Reset)
+	begin
+		if (Reset = '1') then
+			-- everything 0
+		elsif (WaitEnable = '1') then
+			if rising_edge(Clock) then
+				if (Counter = COUNTER_MAX) then
+					Counter <= 0;
+					if (MinWait = '1') then
+						MinWait   <= '0';
+						AmberWait <= '1';
+					elsif (AmberWait = '1') then
+						AmberWait <= '0';
+						PedWait   <= '1';
+					else
+						PedWait   <= '0';
+						MinWait   <= '1';
+					end if;
+				else
+					Counter <= Counter + 1;
+				end if;
+			end if;
+		else
+			Counter <= 0;
+		end if;
+	end Process Timer;
+	
+	--[ ]--------------------------------------------------------------------------------------
+	CombinationalProcess:
+	Process(State, MinWait, PedWait, AmberWait)
+	begin
+		LightsNS <= RED;
+		LightsEW <= RED;
+		cmCarEW  <= '0';
+		cmCarNS  <= '0';
+		cmPedEW  <= '0';
+		cmPedNS  <= '0';
+	
+		case State is
+			when GreenEW =>
+			WaitEnable <= '1';
+			if (MinWait = '1' and (mCarNS = '1' or mPedEW = '1')) then
+				NextState  <= AmberEW;
+				WaitEnable <= '0';
 			else
-				Counter <= Counter + 1;
+				LightsEW   <= GREEN;
 			end if;
 
-		end if;
-	end Process SyncProcess;
-
-
-	-- 
-	CombinationalProcess:
-	Process(State, Counter)
-	begin
-		-- default values for signals; prevents latches
-		LightsEW  <= RED;
-		LightsNS  <= RED;
-
-		-- Next state and lights condition defined based upon current state
-		case State is
-			when GreenNS =>
-				if (Counter = COUNTER_MAX) then
-					NextState <= AmberNS;
+			when AmberEW =>
+				WaitEnable <= '1';
+				if (AmberWait  = '1' and (mCarNS = '1')) then
+					NextState  <= GreenNS;
+					cmCarNS    <= '1';
+					WaitEnable <= '0';
+				elsif (AmberWait = '1' and (mPedEW = '1')) then
+					NextState  <= WalkNS;
+					cmPedEW    <= '1';
+					WaitEnable <= '0';
 				else
-					LightsNS  <= GREEN;
+					LightsEW   <= AMBER;
+				end if;
+			
+			when WalkEW  =>
+				WaitEnable <= '1';
+				if (PedWait = '1') then
+					NextState  <= GreenNS;
+					WaitEnable <= '0';
+				else
+					LightsEW   <= WALK;
+				end if;
+
+			when GreenNS =>
+				WaitEnable <= '1';
+				if (MinWait = '1' and (mCarEW = '1' or mPedNS = '1')) then
+					NextState  <= AmberNS;
+					WaitEnable <= '0';
+				else
+					LightsNS   <= GREEN;
 				end if;
 
 			when AmberNS =>
-				if (Counter = COUNTER_MAX) then
-					NextState <= GreenEW;
+				WaitEnable <= '1';
+				if (AmberWait  = '1' and (mCarEW = '1')) then
+					NextState  <= GreenEW;
+					cmCarEW    <= '1';
+					WaitEnable <= '0';
+				elsif (AmberWait = '1' and (mPedNS = '1')) then
+					NextState  <= WalkEW;
+					cmPedNS    <= '1';
+					WaitEnable <= '0';
 				else
-					LightsNS  <= AMBER;
+					LightsNS   <= AMBER;
+				end if;	
+
+			when WalkNS  =>
+				WaitEnable <= '1';
+				if (PedWait = '1') then
+					NextState  <= GreenEW;
+					WaitEnable <= '0';
+				else
+					LightsNS   <= WALK;
 				end if;
 
-			when GreenEW =>
-				if (Counter = COUNTER_MAX) then
-					NextState <= AmberEW;
-				else
-					LightsEW  <= GREEN;
-				end if;
+		end case State;
+	end process CombinationalProcess;
+	
+	--[ ]--------------------------------------------------------------------------------------
+	MemorySave:
+	Process(CarEW, CarNS, PedEW, PedNS)
+	begin
+		if CarEW   = '1' then
+			mCarEW <= '1';
+		end if;
+		
+		if CarNS   = '1' then
+			mCarNS <= '1';
+		end if;
+		
+		if PedEW   = '1' then
+			mPedEW <= '1';
+		end if;
+		
+		if PedNS   = '1' then
+			mPedNS <= '1';
+		end if;
+		
+		if cmCarEW = '1' then
+			mCarEW <= '0';
+		end if;
+		
+		if cmCarNS = '1' then
+			mCarNS <= '0';
+		end if;
+		
+		if cmPedEW = '1' then
+			mPedEW <= '0';
+		end if;
+		
+		if cmPedNS = '1' then
+			mPedNS <= '0';
+		end if;
+	end Process MemorySave;
 
-			when AmberEW =>
-				if (Counter = COUNTER_MAX) then
-					NextState <= GreenNS;
-				else
-					LightsEW  <= AMBER;
-				end if;
-		end case;
-
-	end Process CombinationalProcess;
-
-
-	-- button states save in memory
---	ButtonState:
---	Process(
-end;
+end architecture;
