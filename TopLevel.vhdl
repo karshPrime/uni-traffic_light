@@ -130,6 +130,7 @@ begin
 						NextState  <= GreenNS;
 					end if;
 				end if;
+				ClearMem <= '1';
 
 			when AmberEW =>
 				LightsEW  <= AMBER;
@@ -142,6 +143,7 @@ begin
 						NextState <= GreenEW;
 					end if;
 				end if;
+				ClearMem <= '1';
 
 			when WalkEW  =>
 				LightsEW   <= WALK;
@@ -160,6 +162,7 @@ begin
 				end if;
 
 		end case State;
+	
 	end process CombinationalProcess;
 	
 	--[ ]--------------------------------------------------------------------------------------
@@ -171,16 +174,15 @@ begin
 			mCarNS <= '0';
 			mPedEW <= '0';
 			mPedNS <= '0';
-		elsif CarEW   = '1' then
+		elsif CarEW = '1' then
 			mCarEW <= '1';
-		elsif CarNS   = '1' then
+		elsif CarNS = '1' then
 			mCarNS <= '1';
-		elsif PedEW   = '1' then
+		elsif PedEW = '1' then
 			mPedEW <= '1';
-		elsif PedNS   = '1' then
+		elsif PedNS = '1' then
 			mPedNS <= '1';
 		end if;
-	
 	end Process MemorySave;
 
 end architecture;
