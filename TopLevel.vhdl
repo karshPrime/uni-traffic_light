@@ -52,74 +52,87 @@ Signal Counter : NATURAL RANGE 0 to COUNTER_MAX := 0;
 
 -- memory signals
 Signal mCarEW, mCarNS, mPedEW, mPedNS : STD_LOGIC := '0';
-Signal ClearMem : STD_LOGIC := '0';
+Signal cCarEW, cCarNS, cPedEW, cPedNS : STD_LOGIC := '0';
 
+-- for individual light delays
 Signal PedWait, AmberWait, MinWait, WaitEnable : STD_LOGIC := '0';
 
 begin
-	debugLed <= Reset; 			-- Show reset status on FPGA LED
-	LEDs     <= (mCarEW, mCarNS, mPedEW, mPedNS); -- Debug LEDs
+	debugLed <= Reset;                              -- Show reset status on FPGA LED
+	LEDs     <= (mCarEW, mCarNS, mPedEW, mPedNS);   -- display stored values in Debug LEDs
 
-	--[ ]--------------------------------------------------------------------------------------
+	--[ Async reset and synchronised state change ]--------------------------------------------
 	SyncProcess:
 	Process(Reset, Clock)
 	begin
-		if (Reset = '1') then
-			State  <= GreenEW;
+		if (Reset = '1') then  -- async reset
+			State  <= GreenEW;  -- defalut state
 		elsif rising_edge(Clock) then
-			State <= NextState;
+			State <= NextState; -- at clock edge, change state
 		end if;
 	end process SyncProcess;
 	
-	--[ Counter ]------------------------------------------------------------------------------
+	--[ Counter for delays ]-------------------------------------------------------------------
 	Timer:
 	Process(WaitEnable, Clock, Reset)
 	begin
-		if (Reset = '1') then
-			Counter <= 0;
-		elsif (WaitEnable = '1') then
-			if rising_edge(Clock) then
-				if (Counter = COUNTER_MAX) then
-					Counter <= 0;
+		if (Reset = '1') then                 -- async reset
+			Counter <= 0;                      -- clear counter
+		elsif (WaitEnable = '1') then         -- if counter requested to run
+			if rising_edge(Clock) then         -- at clock edge
+				if (Counter = COUNTER_MAX) then -- if counter is already the max it could be
+					Counter <= 0;                -- clear counter
 				else
-					Counter <= Counter + 1;
+					Counter <= Counter + 1;      -- increment counter
 				end if;
 			end if;
 		else
-			Counter <= 0;
+			Counter <= 0;                      -- clear counter when not needed
 		end if;
 	end Process Timer;
 	
+	-- change wait status depending on counter count
 	MinWait   <= '1' when (Counter = 511)  else '0';
 	AmberWait <= '1' when (Counter = 1023) else '0';
 	PedWait   <= '1' when (Counter = 1535) else '0';
 
-	--[ ]--------------------------------------------------------------------------------------
+	--[ State change conditions and processes ]------------------------------------------------
 	CombinationalProcess:
 	Process(State, MinWait, PedWait, AmberWait)
 	begin
+		-- default values; helps prevent latches
 		LightsNS <= RED;
 		LightsEW <= RED;
-		ClearMem <= '0';
+		cCarEW   <= '0';
+		cCarNS   <= '0';
+		cPedEW   <= '0';
+		cPedNS   <= '0';
 
 		case State is
 			when GreenEW =>
-				LightsEW   <= GREEN;
-				WaitEnable <= '1';
+				LightsEW   <= GREEN;          -- change lights for this state
+				WaitEnable <= '1';            -- enable counter
+
+				-- change state only when a car is ditected on other road
+				-- and the current light has been on for minimum time.
 				if (MinWait = '1' and mCarNS = '1') then
-					WaitEnable <= '0';
-					NextState  <= AmberNS;
+					WaitEnable <= '0';			-- turn off counter once its at minWait
+					NextState  <= AmberNS;		-- define next state
+
+
+			-- if ped wishes to cross the other road
 				elsif (mPedEW = '1') then
-					if (PedWait  = '1') then
-						WaitEnable <= '0';
-						LightsEW   <= RED;
-						ClearMem   <= '1';
+					if (PedWait  = '1') then	-- clear cross light after allocated crossing time
+						WaitEnable <= '0';		-- turn off counter once its at pedWait
+						LightsEW   <= RED;		-- switch back LED to its previous state
+						cPedEW     <= '1';		-- clear ped crossing request
 					else
-						LightsEW   <= WALK;
+						LightsEW   <= WALK;     -- while counter < max allowed; show crossing sign
 					end if;
 				end if;
 
-			when GreenNS =>
+
+			when GreenNS =>                  -- same process as above, but for different Lights
 				LightsNS   <= GREEN;
 				WaitEnable <= '1';
 				if (MinWait = '1' and mCarEW = '1') then
@@ -129,41 +142,49 @@ begin
 					if (PedWait  = '1') then
 						WaitEnable <= '0';
 						LightsNS   <= RED;
-						ClearMem   <= '1';
+						cPedNS     <= '1';
 					else
 						LightsNS   <= WALK;
 					end if;
 				end if;
 
-			when AmberNS =>
-				LightsNS   <= AMBER;
-				WaitEnable <= '1';
-				if (AmberWait = '1') then
-					WaitEnable <= '0';
-					NextState  <= GreenNS;
-				end if;
-				ClearMem <= '1';
 
-			when AmberEW =>
-				LightsEW  <= AMBER;
+			when AmberNS =>
+				LightsNS   <= AMBER;          -- change lights for this state
+				cCarNS     <= '1';            -- clear car requests (not required anymore)
+				WaitEnable <= '1';            -- enable counter
+
+				-- change state only when the current light has been ON for min time
+				if (AmberWait = '1') then
+					WaitEnable <= '0';         -- disable counter
+					NextState  <= GreenNS;     -- define next state
+				end if;
+
+
+			when AmberEW =>                  -- same process as above, but for different Lights
+				LightsEW   <= AMBER;
+				cCarEW     <= '1';
 				WaitEnable <= '1';
 				if (AmberWait = '1') then
 					WaitEnable <= '0';
 					NextState <= GreenEW;
 				end if;
-				ClearMem <= '1';
+
 		end case State;
-	
+
 	end process CombinationalProcess;
 	
-	--[ ]--------------------------------------------------------------------------------------
+	--[ save button value in signals until asked to clear ]------------------------------------
 	MemorySave:
-	Process(Reset, CarEW, CarNS, PedEW, PedNS, ClearMem)
+	Process(Reset, CarEW, CarNS, PedEW, PedNS, cCarEW, cCarNS, cPedEW, cPedNS)
 	begin
-		if Reset = '1' or ClearMem = '1' then
+		if    Reset = '1' or cCarEW = '1' then
 			mCarEW <= '0';
+		elsif Reset = '1' or cCarNS = '1' then
 			mCarNS <= '0';
+		elsif Reset = '1' or cPedEW = '1' then
 			mPedEW <= '0';
+		elsif Reset = '1' or cPedNS = '1' then
 			mPedNS <= '0';
 		elsif CarEW = '1' then
 			mCarEW <= '1';
