@@ -101,26 +101,25 @@ begin
 	Process(State, MinWait, PedWait, AmberWait)
 	begin
 		-- default values; helps prevent latches
-		LightsNS <= RED;
-		LightsEW <= RED;
-		cCarEW   <= '0';
-		cCarNS   <= '0';
-		cPedEW   <= '0';
-		cPedNS   <= '0';
+		LightsNS   <= RED;
+		LightsEW   <= RED;
+		cCarEW     <= '0';
+		cCarNS     <= '0';
+		cPedEW     <= '0';
+		cPedNS     <= '0';
+		WaitEnable <= '1';
 
 		case State is
 			when GreenEW =>
 				LightsEW   <= GREEN;          -- change lights for this state
-				WaitEnable <= '1';            -- enable counter
 
-				-- change state only when a car is ditected on other road
-				-- and the current light has been on for minimum time.
-				if (MinWait = '1' and mCarNS = '1') then
+				-- change state only when a car is ditected on other road or ped wants to cross 
+				-- the current road, and the current light has been on for minimum time.
+				if (MinWait = '1' and (mCarNS = '1' or mPedNS = '1')) then
 					WaitEnable <= '0';			-- turn off counter once its at minWait
 					NextState  <= AmberNS;		-- define next state
 
-
-			-- if ped wishes to cross the other road
+				-- if ped wishes to cross the other road
 				elsif (mPedEW = '1') then
 					if (PedWait  = '1') then	-- clear cross light after allocated crossing time
 						WaitEnable <= '0';		-- turn off counter once its at pedWait
@@ -134,8 +133,7 @@ begin
 
 			when GreenNS =>                  -- same process as above, but for different Lights
 				LightsNS   <= GREEN;
-				WaitEnable <= '1';
-				if (MinWait = '1' and mCarEW = '1') then
+				if (MinWait = '1' and (mCarEW = '1' or mPedEW = '1')) then
 					WaitEnable <= '0';
 					NextState  <= AmberEW;
 				elsif (mPedNS = '1') then
@@ -152,7 +150,6 @@ begin
 			when AmberNS =>
 				LightsNS   <= AMBER;          -- change lights for this state
 				cCarNS     <= '1';            -- clear car requests (not required anymore)
-				WaitEnable <= '1';            -- enable counter
 
 				-- change state only when the current light has been ON for min time
 				if (AmberWait = '1') then
@@ -164,7 +161,6 @@ begin
 			when AmberEW =>                  -- same process as above, but for different Lights
 				LightsEW   <= AMBER;
 				cCarEW     <= '1';
-				WaitEnable <= '1';
 				if (AmberWait = '1') then
 					WaitEnable <= '0';
 					NextState <= GreenEW;
