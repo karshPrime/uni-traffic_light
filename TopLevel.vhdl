@@ -123,7 +123,6 @@ begin
 				elsif (mPedEW = '1') then
 					if (PedWait  = '1') then	-- clear cross light after allocated crossing time
 						WaitEnable <= '0';		-- turn off counter once its at pedWait
-						LightsEW   <= RED;		-- switch back LED to its previous state
 						cPedEW     <= '1';		-- clear ped crossing request
 					else
 						LightsEW   <= WALK;     -- while counter < max allowed; show crossing sign
@@ -139,7 +138,6 @@ begin
 				elsif (mPedNS = '1') then
 					if (PedWait  = '1') then
 						WaitEnable <= '0';
-						LightsNS   <= RED;
 						cPedNS     <= '1';
 					else
 						LightsNS   <= WALK;
