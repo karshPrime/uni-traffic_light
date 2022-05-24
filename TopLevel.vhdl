@@ -42,7 +42,7 @@ CONSTANT WALK  : STD_LOGIC_VECTOR(1 downto 0) := "11";
 
 -- defining states
 type StateType is (GreenNS, GreenEW, AmberEW, AmberNS);
-Signal State, NextState, TMP : StateType;
+Signal State, NextState : StateType;
 
 -- defining counter
 CONSTANT COUNTER_MAX : INTEGER := 1535;
@@ -98,7 +98,7 @@ begin
 	CombinationalProcess:
 	Process(State, MinWait, PedWait, AmberWait)
 	begin
-		-- default values; helps prevent latches
+		-- default values; latch prevention
 		LightsNS   <= RED;
 		LightsEW   <= RED;
 		cCarEW     <= '0';
@@ -106,6 +106,7 @@ begin
 		cPedEW     <= '0';
 		cPedNS     <= '0';
 		WaitEnable <= '1';
+		NextState  <= State;
 
 		case State is
 			when GreenEW =>
@@ -125,6 +126,10 @@ begin
 					else
 						LightsEW   <= WALK;     -- while counter < max allowed; show crossing sign
 					end if;
+					
+				-- latch prevention
+				else
+					NextState <= GreenEW;
 				end if;
 
 
@@ -140,6 +145,8 @@ begin
 					else
 						LightsNS   <= WALK;
 					end if;
+				else
+					NextState <= GreenNS;
 				end if;
 
 
@@ -151,6 +158,8 @@ begin
 				if (AmberWait = '1') then
 					WaitEnable <= '0';         -- disable counter
 					NextState  <= GreenNS;     -- define next state
+				else
+					NextState <= AmberNS;
 				end if;
 
 
@@ -160,6 +169,8 @@ begin
 				if (AmberWait = '1') then
 					WaitEnable <= '0';
 					NextState <= GreenEW;
+				else
+					NextState <= AmberEW;
 				end if;
 
 		end case State;
@@ -170,22 +181,22 @@ begin
 	MemorySave:
 	Process(Reset, CarEW, CarNS, PedEW, PedNS, cCarEW, cCarNS, cPedEW, cPedNS)
 	begin
-		if    Reset = '1' or cCarEW = '1' then
+		if Reset = '1' or cCarEW = '1' then
 			mCarEW <= '0';
-		elsif Reset = '1' or cCarNS = '1' then
 			mCarNS <= '0';
-		elsif Reset = '1' or cPedEW = '1' then
 			mPedEW <= '0';
-		elsif Reset = '1' or cPedNS = '1' then
 			mPedNS <= '0';
-		elsif (CarEW = '1' and State /= GreenEW) then
-			mCarEW <= '1';
-		elsif (CarNS = '1' and State /= GreenNS) then
-			mCarNS <= '1';
-		elsif PedEW = '1' then
-			mPedEW <= '1';
-		elsif PedNS = '1' then
-			mPedNS <= '1';
+		elsif rising_edge(clock) then
+			if    cCarEW = '1' then mCarEW <= '0';
+			elsif cCarNS = '1' then	mCarNS <= '0';
+			elsif cPedEW = '1' then mPedEW <= '0';
+			elsif cPedNS = '1' then mPedNS <= '0';
+			elsif CarEW  = '1' then mCarEW <= '1';
+			elsif CarNS  = '1' then mCarNS <= '1';
+			elsif PedEW  = '1' then mPedEW <= '1';
+			elsif PedNS  = '1' then mPedNS <= '1';
+			end if;
 		end if;
+
 	end Process MemorySave;
 end architecture;
