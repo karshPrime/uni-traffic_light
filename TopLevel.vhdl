@@ -44,7 +44,7 @@ CONSTANT WALK  : STD_LOGIC_VECTOR(1 downto 0) := "11";
 
 -- defining states
 type StateType is (GreenNS, GreenEW, AmberEW, AmberNS);
-Signal State, NextState, TMP : StateType;
+Signal State, NextState : StateType;
 
 -- defining counter
 CONSTANT COUNTER_MAX : INTEGER := 1535;
@@ -183,22 +183,21 @@ begin
 	MemorySave:
 	Process(Reset, CarEW, CarNS, PedEW, PedNS, cCarEW, cCarNS, cPedEW, cPedNS)
 	begin
-		if    Reset = '1' or cCarEW = '1' then
+		if Reset = '1' or cCarEW = '1' then
 			mCarEW <= '0';
-		elsif Reset = '1' or cCarNS = '1' then
 			mCarNS <= '0';
-		elsif Reset = '1' or cPedEW = '1' then
 			mPedEW <= '0';
-		elsif Reset = '1' or cPedNS = '1' then
 			mPedNS <= '0';
-		elsif CarEW = '1' then
-			mCarEW <= '1';
-		elsif CarNS = '1' then
-			mCarNS <= '1';
-		elsif PedEW = '1' then
-			mPedEW <= '1';
-		elsif PedNS = '1' then
-			mPedNS <= '1';
+		elsif rising_edge(clock) then
+			if    cCarEW = '1' then mCarEW <= '0';
+			elsif cCarNS = '1' then	mCarNS <= '0';
+			elsif cPedEW = '1' then mPedEW <= '0';
+			elsif cPedNS = '1' then mPedNS <= '0';
+			elsif CarEW  = '1' then mCarEW <= '1';
+			elsif CarNS  = '1' then mCarNS <= '1';
+			elsif PedEW  = '1' then mPedEW <= '1';
+			elsif PedNS  = '1' then mPedNS <= '1';
+			end if;
 		end if;
 	end Process MemorySave;
 
