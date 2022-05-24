@@ -100,7 +100,7 @@ begin
 	CombinationalProcess:
 	Process(State, MinWait, PedWait, AmberWait)
 	begin
-		-- default values; helps prevent latches
+		-- default values; latch prevention
 		LightsNS   <= RED;
 		LightsEW   <= RED;
 		cCarEW     <= '0';
@@ -108,6 +108,7 @@ begin
 		cPedEW     <= '0';
 		cPedNS     <= '0';
 		WaitEnable <= '1';
+		NextState  <= State;
 
 		case State is
 			when GreenEW =>
@@ -127,6 +128,10 @@ begin
 					else
 						LightsEW   <= WALK;     -- while counter < max allowed; show crossing sign
 					end if;
+					
+				-- latch prevention
+				else
+					NextState <= GreenEW;
 				end if;
 
 
@@ -142,6 +147,8 @@ begin
 					else
 						LightsNS   <= WALK;
 					end if;
+				else
+					NextState <= GreenNS;
 				end if;
 
 
@@ -153,6 +160,8 @@ begin
 				if (AmberWait = '1') then
 					WaitEnable <= '0';         -- disable counter
 					NextState  <= GreenNS;     -- define next state
+				else
+					NextState <= AmberNS;
 				end if;
 
 
@@ -162,6 +171,8 @@ begin
 				if (AmberWait = '1') then
 					WaitEnable <= '0';
 					NextState <= GreenEW;
+				else
+					NextState <= AmberEW;
 				end if;
 
 		end case State;
