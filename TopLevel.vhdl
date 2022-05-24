@@ -27,10 +27,8 @@ entity Traffic is
 				PedNS      : in   STD_LOGIC; -- Pedestrian moving NS (crossing EW road)
 
            -- Light control
-				LightsEW   : out STD_LOGIC_VECTOR (1 downto 0); -- controls EW lights
-				LightsNS   : out STD_LOGIC_VECTOR (1 downto 0)  -- controls NS lights
-           
-           );
+				LightsEW   : out STD_LOGIC_VECTOR (1 downto 0);  -- controls EW lights
+				LightsNS   : out STD_LOGIC_VECTOR (1 downto 0)); -- controls NS lights
 end Traffic;
 
 ----------------------------------------------------------------------------------------------
@@ -71,7 +69,7 @@ begin
 			State <= NextState; -- at clock edge, change state
 		end if;
 	end process SyncProcess;
-	
+
 	--[ Counter for delays ]-------------------------------------------------------------------
 	Timer:
 	Process(WaitEnable, Clock, Reset)
@@ -178,7 +176,7 @@ begin
 		end case State;
 
 	end process CombinationalProcess;
-	
+
 	--[ save button value in signals until asked to clear ]------------------------------------
 	MemorySave:
 	Process(Reset, CarEW, CarNS, PedEW, PedNS, cCarEW, cCarNS, cPedEW, cPedNS)
@@ -199,6 +197,6 @@ begin
 			elsif PedNS  = '1' then mPedNS <= '1';
 			end if;
 		end if;
-	end Process MemorySave;
 
+	end Process MemorySave;
 end architecture;
