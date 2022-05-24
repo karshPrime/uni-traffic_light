@@ -179,24 +179,33 @@ begin
 
 	--[ save button value in signals until asked to clear ]------------------------------------
 	MemorySave:
-	Process(Reset, CarEW, CarNS, PedEW, PedNS, cCarEW, cCarNS, cPedEW, cPedNS)
+	Process(Reset, CarEW, CarNS, cCarEW, cCarNS, clock)
 	begin
-		if Reset = '1' or cCarEW = '1' then
+		if Reset = '1' then
 			mCarEW <= '0';
 			mCarNS <= '0';
-			mPedEW <= '0';
-			mPedNS <= '0';
 		elsif rising_edge(clock) then
 			if    cCarEW = '1' then mCarEW <= '0';
-			elsif cCarNS = '1' then	mCarNS <= '0';
-			elsif cPedEW = '1' then mPedEW <= '0';
-			elsif cPedNS = '1' then mPedNS <= '0';
-			elsif CarEW  = '1' then mCarEW <= '1';
-			elsif CarNS  = '1' then mCarNS <= '1';
-			elsif PedEW  = '1' then mPedEW <= '1';
-			elsif PedNS  = '1' then mPedNS <= '1';
+			elsif cCarNS = '1' then mCarNS <= '0';
+			elsif (CarEW = '1' and State /= GreenEW) then mCarEW <= '1';
+			elsif (CarNS = '1' and State /= GreenNS) then mCarNS <= '1';
 			end if;
 		end if;
-
 	end Process MemorySave;
+
+	PedSave:
+	Process(Reset, cPedNS, cPedEW, PedEW, PedNS)
+	begin
+		if Reset = '1' then
+			mPedEW <= '0';
+			mPedNS <= '0';
+		elsif cPedEW = '1' then mPedEW <= '0';
+		elsif cPedNS = '1' then mPedNS <= '0';
+		elsif PedEW = '1'  then mPedEW <= '1';
+		elsif PedNS = '1'  then mPedNS <= '1';
+		end if;
+	end Process PedSave;
+
 end architecture;
+
+
