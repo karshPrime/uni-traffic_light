@@ -27,8 +27,10 @@ entity Traffic is
 				PedNS      : in   STD_LOGIC; -- Pedestrian moving NS (crossing EW road)
 
            -- Light control
-				LightsEW   : out STD_LOGIC_VECTOR (1 downto 0);  -- controls EW lights
-				LightsNS   : out STD_LOGIC_VECTOR (1 downto 0)); -- controls NS lights
+				LightsEW   : out STD_LOGIC_VECTOR (1 downto 0); -- controls EW lights
+				LightsNS   : out STD_LOGIC_VECTOR (1 downto 0)  -- controls NS lights
+           
+           );
 end Traffic;
 
 ----------------------------------------------------------------------------------------------
@@ -69,7 +71,7 @@ begin
 			State <= NextState; -- at clock edge, change state
 		end if;
 	end process SyncProcess;
-
+	
 	--[ Counter for delays ]-------------------------------------------------------------------
 	Timer:
 	Process(WaitEnable, Clock, Reset)
@@ -98,7 +100,7 @@ begin
 	CombinationalProcess:
 	Process(State, MinWait, PedWait, AmberWait)
 	begin
-		-- default values; latch prevention
+		-- default values; helps prevent latches
 		LightsNS   <= RED;
 		LightsEW   <= RED;
 		cCarEW     <= '0';
@@ -106,7 +108,6 @@ begin
 		cPedEW     <= '0';
 		cPedNS     <= '0';
 		WaitEnable <= '1';
-		NextState  <= State;
 
 		case State is
 			when GreenEW =>
@@ -126,10 +127,6 @@ begin
 					else
 						LightsEW   <= WALK;     -- while counter < max allowed; show crossing sign
 					end if;
-					
-				-- latch prevention
-				else
-					NextState <= GreenEW;
 				end if;
 
 
@@ -145,8 +142,6 @@ begin
 					else
 						LightsNS   <= WALK;
 					end if;
-				else
-					NextState <= GreenNS;
 				end if;
 
 
@@ -158,8 +153,6 @@ begin
 				if (AmberWait = '1') then
 					WaitEnable <= '0';         -- disable counter
 					NextState  <= GreenNS;     -- define next state
-				else
-					NextState <= AmberNS;
 				end if;
 
 
@@ -169,14 +162,12 @@ begin
 				if (AmberWait = '1') then
 					WaitEnable <= '0';
 					NextState <= GreenEW;
-				else
-					NextState <= AmberEW;
 				end if;
 
 		end case State;
 
 	end process CombinationalProcess;
-
+	
 	--[ save button value in signals until asked to clear ]------------------------------------
 	MemorySave:
 	Process(Reset, CarEW, CarNS, cCarEW, cCarNS, clock)
@@ -206,6 +197,5 @@ begin
 		end if;
 	end Process PedSave;
 
+
 end architecture;
-
-
