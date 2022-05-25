@@ -192,8 +192,8 @@ begin
 			mPedNS <= '0';
 		elsif cPedEW = '1' then mPedEW <= '0';
 		elsif cPedNS = '1' then mPedNS <= '0';
-		elsif PedEW = '1'  then mPedEW <= '1';
-		elsif PedNS = '1'  then mPedNS <= '1';
+		elsif (PedEW = '1' and PedNS = '0') then mPedEW <= '1';
+		elsif (PedNS = '1' and PedEW = '0') then mPedNS <= '1';
 		end if;
 	end Process PedSave;
 
